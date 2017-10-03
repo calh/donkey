@@ -55,6 +55,7 @@ class BaseVehicle:
             #print current car state
             end = time.time()
             lag = end - start
-            print('\r CAR: angle: {:+04.2f}   throttle: {:+04.2f}   drive_mode: {}  lag: {:+04.2f}'.format(angle, throttle, drive_mode, lag), end='')           
+            print('\r CAR: angle: {:+04.2f} throttle: {:+04.2f} SpeedL: {:+04.2f} SpeedR: {:+04.2f} Lmotor: {:+04.0f} Rmotor: {:+04.0f} drive_mode: {}  lag: {:+04.2f}'.format(angle, throttle, self.actuator_mixer.left_motor.speed, self.actuator_mixer.right_motor.speed, self.actuator_mixer.left_motor.pololu_speed, self.actuator_mixer.right_motor.pololu_speed, drive_mode, lag), end='')           
+
             
             time.sleep(self.drive_loop_delay)

@@ -6,6 +6,7 @@ Classes to wrap motor controllers into a functional drive unit.
 
 import time
 import sys
+import math
 from donkey import actuators
 
 
@@ -41,7 +42,7 @@ class AckermannSteeringMixer(BaseMixer):
         self.steering_actuator.update(angle)
         self.throttle_actuator.update(throttle)
 
-
+from pololu_drv8835_rpi import motors, MAX_SPEED
 
 class DifferentialDriveMixer:
     """
@@ -56,6 +57,27 @@ class DifferentialDriveMixer:
         self.angle=0
         self.throttle=0
     
+    def steering_mixer(self,throttle,angle):
+        # convert to polar coordintes
+        r = math.hypot(angle, throttle)
+        t = math.atan2(throttle, angle)
+
+        # rotate by 45 degrees
+        t += math.pi / 4
+
+        # back to cartesian
+        right = r * math.cos(t)
+        left = r * math.sin(t)
+
+        # rescale the new coords
+        left = left * math.sqrt(2)
+        right = right * math.sqrt(2)
+
+        # clamp to -1/+1
+        left = max(-1, min(left, 1))
+        right = max(-1, min(right, 1))
+
+        return left, right
 
     def update(self, throttle, angle):
         self.throttle = throttle
@@ -65,12 +87,17 @@ class DifferentialDriveMixer:
            self.stop()
         else:
             
-            l_speed = ((self.left_motor.speed + throttle)/3 - angle/5)
-            r_speed = ((self.right_motor.speed + throttle)/3 + angle/5)
-            l_speed = min(max(l_speed, -1), 1)
-            r_speed = min(max(r_speed, -1), 1)
-            
+            #l_speed = ((self.left_motor.speed + throttle)/3 - angle/5)
+            #r_speed = ((self.right_motor.speed + throttle)/3 + angle/5)
+            #l_speed = ((self.left_motor.speed + throttle)/2 + angle/5)
+            #r_speed = ((self.right_motor.speed + throttle)/2 - angle/5)
+            #l_speed = min(max(l_speed, -1), 1)
+            #r_speed = min(max(r_speed, -1), 1)
+            l_speed, r_speed = self.steering_mixer(angle, throttle)
+            #motors.setSpeeds(int(l_speed*MAX_SPEED),int(r_speed*MAX_SPEED))
+            #if l_speed != self.left_motor.speed:
             self.left_motor.turn(l_speed)
+            #if r_speed != self.right_motor.speed:
             self.right_motor.turn(r_speed)
             
             

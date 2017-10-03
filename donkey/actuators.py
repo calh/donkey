@@ -8,7 +8,7 @@ are wrapped in a mixer class before being used in the drive loop.
 
 import time
 import sys
-
+import threading
 
 def map_range(x, X_min, X_max, Y_min, Y_max):
     ''' 
@@ -172,5 +172,71 @@ class Adafruit_Motor_Hat_Controller:
             time.sleep(seconds)
             print('speed: %s   throttle: %s' % (self.speed, self.throttle))
         print('motor #%s test complete'% self.motor_num)
-        
 
+class Null_Controller:
+  def __init__(self):
+    self.speed = 0
+    self.pololu_speed = 0
+    self.throttle = 0
+
+  def turn(self,speed):
+    self.speed = speed
+
+from pololu_drv8835_rpi import motors
+pololu_lock = threading.Lock()
+pololu_driver = motors
+       
+class DRV8835_Controller:
+    ''' 
+    Pololu DRV8835 controller.  Drives Pololu Dual Driver controller #2753
+    Note:  Depends on wiringpi which requires root privileges
+    '''
+    def __init__(self, motor_num):
+        import atexit
+        global pololu_driver
+        
+        # both motors, for panic stopping 
+        self.MAX_FORWARD = pololu_driver.MAX_SPEED
+        self.MAX_BACKWARD = -pololu_driver.MAX_SPEED
+        if motor_num == 1:
+                self.motor = pololu_driver.motor1
+        elif motor_num == 2:
+                self.motor = pololu_driver.motor2
+        self.motor_num = motor_num
+        
+        atexit.register(self.turn_off_motors)
+        self.turn_off_motors()
+        self.speed = 0
+        self.throttle = 0
+    
+
+    def turn_off_motors(self):
+        with pololu_lock:
+          pololu_driver.setSpeeds(0,0)
+        
+    def turn(self, speed):
+        '''
+        Update the speed of the motor where 1 is full forward and
+        -1 is full backwards.
+        '''
+        if speed > 1 or speed < -1:
+            raise ValueError( "Speed must be between 1(forward) and -1(reverse)")
+        self.speed = speed
+
+        # Pololu drivers use a range of -480 => 480 for reverse and forward.
+	# Multiply the input speed by MAX_SPEED to map the input value
+	# to the number Pololu expects
+        self.pololu_speed = int(self.speed * self.MAX_FORWARD)
+
+        with pololu_lock:
+           self.motor.setSpeed( self.pololu_speed )
+           #time.sleep(0.05)
+        
+    def test(self, seconds=.5):
+        speeds = [-.5, -1, -.5, 0, .5, 1, 0]
+        for s in speeds:
+            self.turn(s)
+            time.sleep(seconds)
+            print('speed: %s   throttle: %s' % (self.speed, self.throttle))
+        print('motor #%s test complete'% self.motor_num)
+ 
